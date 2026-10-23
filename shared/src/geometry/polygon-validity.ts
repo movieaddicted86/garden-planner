@@ -1,0 +1,134 @@
+import { assertFinitePoints } from './assert-finite-points.js';
+import type { Point } from './point.js';
+
+/**
+ * Distance in metres below which two shapes count as touching. The tolerance is absolute, not relative: plan
+ * coordinates are metres in one garden (a few dozen metres across, never more than a few kilometres from the
+ * origin), so a length computed from them in double precision carries an error of ~1e-16 relative — orders of
+ * magnitude below 1e-9 m (1 nm), a length no drawing or input can express on purpose.
+ */
+export const GEOMETRY_EPSILON = 1e-9;
+
+/** Why a polygon cannot be used (D5). `edgeA < edgeB`, edges numbered as in D4. */
+export type PolygonIssue =
+  | { kind: 'too_few_points' }
+  | { kind: 'duplicate_vertex'; index: number } // vertex `index` equals vertex `(index + 1) mod n`: edge `index` has length 0
+  | { kind: 'self_intersection'; edgeA: number; edgeB: number };
+
+/** Edge `i` runs from vertex `i` to vertex `(i + 1) mod n` (D4). */
+function edgeEnd(points: readonly Point[], index: number): Point {
+  return points[(index + 1) % points.length];
+}
+
+/** The two edges are neighbours: `j === i + 1`, or `i === 0` and `j === n - 1` (the closing edge). */
+function isAdjacent(edgeA: number, edgeB: number, vertexCount: number): boolean {
+  return edgeB === edgeA + 1 || (edgeA === 0 && edgeB === vertexCount - 1);
+}
+
+/** Distance from `point` to the segment `a`–`b`, clamped to the segment (an endpoint outside does not count). */
+function distanceToSegment(point: Point, a: Point, b: Point): number {
+  const abx = b.x - a.x;
+  const aby = b.y - a.y;
+  const lengthSquared = abx * abx + aby * aby;
+  if (lengthSquared === 0) {
+    return Math.hypot(point.x - a.x, point.y - a.y);
+  }
+  const projection = ((point.x - a.x) * abx + (point.y - a.y) * aby) / lengthSquared;
+  const t = Math.min(1, Math.max(0, projection));
+  return Math.hypot(point.x - (a.x + t * abx), point.y - (a.y + t * aby));
+}
+
+/** Orientation of the triangle (a, b, c): > 0 counter-clockwise, < 0 clockwise, 0 collinear. */
+function cross(a: Point, b: Point, c: Point): number {
+  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+}
+
+/** A proper crossing: the segments meet in the interior of both. Touching is left to the distance test. */
+function properlyCross(a: Point, b: Point, c: Point, d: Point): boolean {
+  const abc = cross(a, b, c);
+  const abd = cross(a, b, d);
+  const cda = cross(c, d, a);
+  const cdb = cross(c, d, b);
+  return ((abc > 0 && abd < 0) || (abc < 0 && abd > 0)) && ((cda > 0 && cdb < 0) || (cda < 0 && cdb > 0));
+}
+
+/**
+ * Distance between the segments `a`–`b` and `c`–`d`: 0 when they properly cross, otherwise the smallest
+ * endpoint-to-segment distance. That is 0 for a vertex lying on the other segment (T-junction), for two edges
+ * meeting in a shared vertex and for a collinear overlap, and > 0 for shapes that stay apart.
+ */
+function segmentDistance(a: Point, b: Point, c: Point, d: Point): number {
+  if (properlyCross(a, b, c, d)) {
+    return 0;
+  }
+  return Math.min(distanceToSegment(a, c, d), distanceToSegment(b, c, d), distanceToSegment(c, a, b), distanceToSegment(d, a, b));
+}
+
+/**
+ * Non-adjacent edges are an issue when they come within the tolerance at all. Adjacent edges share a vertex by
+ * definition (D5), which is not an issue in itself: they are one only when they fold back onto each other, that
+ * is when the far endpoint of one edge lies on the other edge.
+ */
+function edgesTouch(points: readonly Point[], edgeA: number, edgeB: number): boolean {
+  const a = points[edgeA];
+  const b = edgeEnd(points, edgeA);
+  const c = points[edgeB];
+  const d = edgeEnd(points, edgeB);
+
+  if (!isAdjacent(edgeA, edgeB, points.length)) {
+    return segmentDistance(a, b, c, d) <= GEOMETRY_EPSILON;
+  }
+
+  // `b === c` for neighbours in sequence; for the closing pair (0, n - 1) the shared vertex is `a === d`.
+  const inSequence = edgeB === edgeA + 1;
+  const farEndOfA = inSequence ? a : b;
+  const farEndOfB = inSequence ? d : c;
+  return distanceToSegment(farEndOfA, c, d) <= GEOMETRY_EPSILON || distanceToSegment(farEndOfB, a, b) <= GEOMETRY_EPSILON;
+}
+
+/**
+ * Every reason the polygon is not a usable zone outline (D3, D5), `[]` when it is fine. Order of evaluation,
+ * first match wins:
+ *
+ * 1. fewer than 3 points — no polygon at all;
+ * 2. a duplicate vertex (cyclic, so a repeated closing vertex counts) — only those issues are reported: a ring
+ *    typed with a repeated first point has to be fixed before an intersection test says anything useful;
+ * 3. otherwise the pairs of edges that touch, ascending by (edge A, edge B).
+ *
+ * O(n²): a zone has a few dozen vertices, and a spatial index would cost more than it saves.
+ */
+export function validatePolygon(points: readonly Point[]): PolygonIssue[] {
+  assertFinitePoints(points, 'validatePolygon');
+
+  const vertexCount = points.length;
+  if (vertexCount < 3) {
+    return [{ kind: 'too_few_points' }];
+  }
+
+  const duplicates: PolygonIssue[] = [];
+  for (let i = 0; i < vertexCount; i += 1) {
+    const a = points[i];
+    const b = edgeEnd(points, i);
+    if (a.x === b.x && a.y === b.y) {
+      duplicates.push({ kind: 'duplicate_vertex', index: i });
+    }
+  }
+  if (duplicates.length > 0) {
+    return duplicates;
+  }
+
+  const issues: PolygonIssue[] = [];
+  for (let edgeA = 0; edgeA < vertexCount; edgeA += 1) {
+    for (let edgeB = edgeA + 1; edgeB < vertexCount; edgeB += 1) {
+      if (edgesTouch(points, edgeA, edgeB)) {
+        issues.push({ kind: 'self_intersection', edgeA, edgeB });
+      }
+    }
+  }
+  return issues;
+}
+
+/** `true` when the polygon can be used as a zone outline: `validatePolygon(points).length === 0`. */
+export function isValidPolygon(points: readonly Point[]): boolean {
+  return validatePolygon(points).length === 0;
+}
