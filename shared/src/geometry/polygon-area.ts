@@ -1,3 +1,4 @@
+import { assertFinitePoints } from './assert-finite-points.js';
 import type { Point } from './point.js';
 
 /**
@@ -5,12 +6,7 @@ import type { Point } from './point.js';
  * Coordinates are made relative to the first vertex so a plot far from the origin does not lose precision.
  */
 export function polygonArea(points: readonly Point[]): number {
-  for (let i = 0; i < points.length; i += 1) {
-    const { x, y } = points[i];
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      throw new RangeError(`polygonArea: vertex ${i} has a non-finite coordinate (${x}, ${y})`);
-    }
-  }
+  assertFinitePoints(points, 'polygonArea');
 
   if (points.length < 3) {
     return 0;
