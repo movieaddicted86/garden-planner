@@ -96,7 +96,7 @@ jobs:
       - run: npm run build
       - name: Run the E2E shard
         run: npm run e2e -- --shard=${{ matrix.shard }}
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: failure()
         with:
           name: playwright-report-${{ strategy.job-index }}
