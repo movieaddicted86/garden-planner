@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.tsbuildinfo
+data/
+.ai/
+.claude/
+package-lock.json
+eslint-suppressions.json
+# managed by ai-dev-framework (restored by `bootstrap upgrade`; never reformat)
+docs/principles/
+docs/CONVENTIONS.md
+docs/CODING-GUIDELINES.md
+docs/radar.md
+docs/review-checklist.md
+eslint.base.mjs

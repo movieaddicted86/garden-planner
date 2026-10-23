@@ -1,0 +1,49 @@
+# Dependency updates as small, grouped pull requests (framework principle 05).
+#
+# Package groups move packages that must stay in step, regardless of bump size; they include `major`, so a
+# major arrives as one reviewable PR instead of being split across the generic group. `npm-minor-patch`
+# catches everything else. Dependabot assigns an update to the FIRST matching group, so the package groups
+# must stay above it. `typescript` is grouped alone: a TS major waits until typescript-eslint supports it.
+# A deliberate hold gets a comment here: what blocks it, what unblocks it, when it is re-checked.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      react:
+        applies-to: version-updates
+        patterns: ['react', 'react-dom', '@types/react', '@types/react-dom']
+      vite:
+        applies-to: version-updates
+        patterns: ['vite', '@vitejs/plugin-react']
+      typescript:
+        applies-to: version-updates
+        patterns: ['typescript']
+      eslint:
+        applies-to: version-updates
+        patterns: ['eslint', 'eslint-*', '@eslint/*', 'typescript-eslint']
+      playwright:
+        applies-to: version-updates
+        patterns: ['@playwright/test', 'playwright']
+      npm-minor-patch:
+        applies-to: version-updates
+        update-types: ['minor', 'patch']
+    commit-message:
+      prefix: 'deps'
+    labels: ['dependencies']
+  - package-ecosystem: github-actions
+    directory: '/'
+    schedule:
+      interval: weekly
+      day: monday
+    groups:
+      actions-minor-patch:
+        applies-to: version-updates
+        update-types: ['minor', 'patch']
+    commit-message:
+      prefix: 'ci'
+    labels: ['dependencies']
