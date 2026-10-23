@@ -1,0 +1,13 @@
+node_modules/
+dist/
+*.tsbuildinfo
+data/
+*.log
+.DS_Store
+.env
+# Playwright output
+test-results/
+playwright-report/
+blob-report/
+CLAUDE.local.md
+.ai/
