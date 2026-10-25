@@ -1,10 +1,26 @@
+import { usePlanStore } from './state/use-plan-store.js';
+import { PlanView } from './components/PlanView.js';
 import { APP_NAME } from './app-info';
 
-/** Application shell; the planner screens are added by the roadmap tasks. */
+/**
+ * Application shell: the header with the product name and the plan's own controls, below it the plan filling the
+ * rest of the window. The planner screens (zones, materials) are added by the roadmap tasks.
+ */
 export function App() {
+  const fitProject = usePlanStore((state) => state.fitProject);
+
   return (
-    <main>
-      <h1>{APP_NAME}</h1>
-    </main>
+    <div className="app-shell">
+      <header className="app-header">
+        <h1 className="app-title">{APP_NAME}</h1>
+        {/* a real button with a text label: it works with the keyboard and needs no icon-only aria name */}
+        <button type="button" className="fit-button" aria-label="Fit plan to view" onClick={fitProject}>
+          Fit
+        </button>
+      </header>
+      <main className="plan-view">
+        <PlanView />
+      </main>
+    </div>
   );
 }
