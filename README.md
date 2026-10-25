@@ -10,7 +10,9 @@ as JSON on the server; the plan exports as PNG and the material list as CSV.
 > Status: skeleton. The plan view is visible: the demo 10 m × 6 m base area is drawn as SVG on a metre grid with a
 > scale bar, and can be zoomed (mouse wheel), panned (drag) and fitted (the "Fit" button). The base-area panel next to
 > it sets the rectangle's width and height, switches the display and input unit between m and cm, and shows the area
-> and perimeter of what is on the plan. The MVP scope and the order
+> and perimeter of what is on the plan. Zones are drawn on the plan by clicking their corners and listed with their
+> live area and perimeter, marked invalid when they cross themselves and warned about when they overlap or leave the
+> base area. The MVP scope and the order
 > of work are in the roadmap; the acceptance test is
 > [docs/UAT.md](docs/UAT.md). This project is also the second validation of
 > [ai-dev-framework](https://github.com/movieaddicted86/ai-dev-framework).
