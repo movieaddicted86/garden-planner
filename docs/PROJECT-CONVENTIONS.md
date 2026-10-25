@@ -61,6 +61,7 @@ A change to one of these areas always runs the listed spec locally (a toolbar ch
 | ---------------------------------------------- | ----------------------------- | ------------------------------------------------- |
 | App shell (page title, heading), `/api/health` | `e2e/specs/smoke.spec.ts`     | `npx playwright test e2e/specs/smoke.spec.ts`     |
 | Plan view (SVG, zoom/pan/fit)                  | `e2e/specs/plan-view.spec.ts` | `npx playwright test e2e/specs/plan-view.spec.ts` |
+| Base-area panel / unit toggle (form, figures)  | `e2e/specs/base-area.spec.ts` | `npx playwright test e2e/specs/base-area.spec.ts` |
 
 ## 4. Deviations from the profile
 
