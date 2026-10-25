@@ -1,4 +1,5 @@
 import { assertFinitePoints } from './assert-finite-points.js';
+import { twiceSignedArea } from './polygon-primitives.js';
 import type { Point } from './point.js';
 
 /**
@@ -7,18 +8,5 @@ import type { Point } from './point.js';
  */
 export function polygonArea(points: readonly Point[]): number {
   assertFinitePoints(points, 'polygonArea');
-
-  if (points.length < 3) {
-    return 0;
-  }
-
-  const origin = points[0];
-  let twiceArea = 0;
-  for (let i = 0; i < points.length; i += 1) {
-    const a = points[i];
-    const b = points[(i + 1) % points.length];
-    twiceArea += (a.x - origin.x) * (b.y - origin.y) - (b.x - origin.x) * (a.y - origin.y);
-  }
-
-  return Math.abs(twiceArea) / 2;
+  return Math.abs(twiceSignedArea(points)) / 2;
 }

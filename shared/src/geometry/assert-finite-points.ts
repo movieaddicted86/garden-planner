@@ -13,3 +13,10 @@ export function assertFinitePoints(points: readonly Point[], functionName: strin
     }
   }
 }
+
+/** The same check for the single point an entry point takes on its own (a probe, a lookup point). */
+export function assertFinitePoint(point: Point, functionName: string, what = 'point'): void {
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
+    throw new RangeError(`${functionName}: ${what} has a non-finite coordinate (${point.x}, ${point.y})`);
+  }
+}

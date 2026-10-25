@@ -8,7 +8,8 @@ export { insertVertex, moveVertex, removeVertex, toggleEdge } from './model/zone
 export type { Point } from './geometry/point.js';
 export { polygonArea } from './geometry/polygon-area.js';
 export { polygonPerimeter } from './geometry/polygon-perimeter.js';
-export { GEOMETRY_EPSILON, isValidPolygon, validatePolygon } from './geometry/polygon-validity.js';
+export { GEOMETRY_EPSILON } from './geometry/polygon-primitives.js';
+export { isValidPolygon, validatePolygon } from './geometry/polygon-validity.js';
 export type { PolygonIssue } from './geometry/polygon-validity.js';
 export { DISPLAY_DECIMALS, type LengthUnit } from './units/length-unit.js';
 export { toMeters, fromMeters } from './units/convert.js';

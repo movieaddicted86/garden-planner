@@ -1,3 +1,5 @@
+import { assertFinitePoint } from '../geometry/assert-finite-points.js';
+import { edgeMidpoint } from '../geometry/polygon-primitives.js';
 import type { Point } from '../geometry/point.js';
 import { MIN_VERTICES } from './factories.js';
 import type { Zone } from './project.js';
@@ -33,20 +35,6 @@ function assertIndex(index: number, count: number, caller: string, what: string)
   }
 }
 
-/** A single point an operation receives, checked the way `assertFinitePoints` checks polygon vertices. */
-function assertFinitePoint(point: Point, caller: string, what: string): void {
-  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) {
-    throw new RangeError(`${caller}: ${what} has a non-finite coordinate (${point.x}, ${point.y})`);
-  }
-}
-
-/** The midpoint of edge `index` (D4), the default position for a vertex inserted on it. */
-function edgeMidpoint(zone: Zone, index: number): Point {
-  const a = zone.points[index];
-  const b = zone.points[(index + 1) % zone.points.length];
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-}
-
 /** The zone with vertex `index` at `to`; the edging is untouched. Bad index or non-finite `to` → `RangeError`. */
 export function moveVertex(zone: Zone, index: number, to: Point): Zone {
   assertIndex(index, zone.points.length, 'moveVertex', 'vertex index');
@@ -63,7 +51,7 @@ export function moveVertex(zone: Zone, index: number, to: Point): Zone {
  */
 export function insertVertex(zone: Zone, edgeIndex: number, at?: Point): Zone {
   assertIndex(edgeIndex, zone.points.length, 'insertVertex', 'edge index');
-  const point = at ?? edgeMidpoint(zone, edgeIndex);
+  const point = at ?? edgeMidpoint(zone.points, edgeIndex);
   assertFinitePoint(point, 'insertVertex', 'the new point');
 
   const insertAt = edgeIndex + 1;
