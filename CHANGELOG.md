@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- shared: zone vertex/edge operations (T-005)
 - shared: data model and factories (T-004)
 - shared: polygon perimeter and validity check (T-003)
 - shared: length units, parsing and formatting (T-002)

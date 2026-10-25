@@ -12,7 +12,7 @@ export const GEOMETRY_EPSILON = 1e-9;
 /** Why a polygon cannot be used (D5). `edgeA < edgeB`, edges numbered as in D4. */
 export type PolygonIssue =
   | { kind: 'too_few_points' }
-  | { kind: 'duplicate_vertex'; index: number } // vertex `index` equals vertex `(index + 1) mod n`: edge `index` has length 0
+  | { kind: 'duplicate_vertex'; index: number } // vertex `index` is within GEOMETRY_EPSILON of vertex `(index + 1) mod n`: edge `index` has no length
   | { kind: 'self_intersection'; edgeA: number; edgeB: number };
 
 /** Edge `i` runs from vertex `i` to vertex `(i + 1) mod n` (D4). */
@@ -87,6 +87,18 @@ function edgesTouch(points: readonly Point[], edgeA: number, edgeB: number): boo
 }
 
 /**
+ * Vertex `i` repeats the next vertex `(i + 1) mod n` (cyclic, so a repeated closing vertex counts) when the two
+ * lie within `GEOMETRY_EPSILON` of each other, not only when they are bit-identical. Edge `i` of a polygon drawn
+ * with an exactly repeated vertex has no length; one drawn with a vertex a nanometre away has an edge that is
+ * shorter than any input can express on purpose. Both are the same defect for the user, and the exact test let
+ * the tiny one through: the neighbouring edges then met at a distance below the tolerance and were reported as a
+ * `self_intersection` (review of T-003, finding 1).
+ */
+function isDuplicateVertex(a: Point, b: Point): boolean {
+  return Math.hypot(b.x - a.x, b.y - a.y) <= GEOMETRY_EPSILON;
+}
+
+/**
  * Every reason the polygon is not a usable zone outline (D3, D5), `[]` when it is fine. Order of evaluation,
  * first match wins:
  *
@@ -107,9 +119,7 @@ export function validatePolygon(points: readonly Point[]): PolygonIssue[] {
 
   const duplicates: PolygonIssue[] = [];
   for (let i = 0; i < vertexCount; i += 1) {
-    const a = points[i];
-    const b = edgeEnd(points, i);
-    if (a.x === b.x && a.y === b.y) {
+    if (isDuplicateVertex(points[i], edgeEnd(points, i))) {
       duplicates.push({ kind: 'duplicate_vertex', index: i });
     }
   }

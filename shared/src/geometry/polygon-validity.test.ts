@@ -227,3 +227,45 @@ test('a non-finite coordinate throws a RangeError naming the vertex', () => {
     RangeError,
   );
 });
+
+/**
+ * The 4 m square of AC-9 with `extra` inserted at index 2, right after vertex 1 `(4,0)`. Edge 1 of the square is
+ * `(4,0)-(4,4)`, so a sensible `extra` splits it; a tiny `extra` is the near-duplicate the tolerance is about.
+ */
+function squareWithExtraVertex(extra: Point): readonly Point[] {
+  return [{ x: 0, y: 0 }, { x: 4, y: 0 }, extra, { x: 4, y: 4 }, { x: 0, y: 4 }];
+}
+
+test('a vertex repeating its predecessor is still a duplicate_vertex (AC-9, T-003 behaviour kept)', () => {
+  assert.deepEqual(validatePolygon(squareWithExtraVertex({ x: 4, y: 0 })), [{ kind: 'duplicate_vertex', index: 1 }]);
+  assert.equal(isValidPolygon(squareWithExtraVertex({ x: 4, y: 0 })), false);
+});
+
+test('a vertex within the tolerance of its predecessor is a duplicate_vertex, not a self_intersection (AC-9)', () => {
+  // 1e-12 m apart: exact equality missed this pair, and the two edges meeting there were then reported as
+  // crossing (review of T-003, finding 1).
+  const almostRepeated = squareWithExtraVertex({ x: 4, y: 1e-12 });
+  assert.deepEqual(validatePolygon(almostRepeated), [{ kind: 'duplicate_vertex', index: 1 }]);
+  assert.equal(isValidPolygon(almostRepeated), false);
+
+  // Just below the tolerance on both axes is still a duplicate.
+  assert.deepEqual(validatePolygon(squareWithExtraVertex({ x: 4, y: GEOMETRY_EPSILON })), [{ kind: 'duplicate_vertex', index: 1 }]);
+});
+
+test('a vertex a visible distance away from its predecessor stays a valid polygon (AC-9)', () => {
+  // 1e-6 m = 1 µm: far above the 1 nm tolerance, so this is a real (if very short) edge.
+  const shortEdge = squareWithExtraVertex({ x: 4, y: 1e-6 });
+  assert.deepEqual(validatePolygon(shortEdge), []);
+  assert.equal(isValidPolygon(shortEdge), true);
+});
+
+test('the duplicate test is cyclic, so a repeated closing vertex still counts (AC-9)', () => {
+  const almostClosed: readonly Point[] = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 4 },
+    { x: 0, y: 4 },
+    { x: 1e-12, y: 1e-12 },
+  ];
+  assert.deepEqual(validatePolygon(almostClosed), [{ kind: 'duplicate_vertex', index: 4 }]);
+});

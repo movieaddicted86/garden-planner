@@ -8,8 +8,8 @@ import { isZoneType, type ZoneType } from './zone-type.js';
 /** The unit a new project displays in when the caller does not name one (D2). */
 const DEFAULT_DISPLAY_UNIT: LengthUnit = 'm';
 
-/** The least a zone outline can be (D3): a closed polygon is not part of the model. */
-const MIN_VERTICES = 3;
+/** The least a zone outline can be (D3): a closed polygon is not part of the model. Also the floor the zone-edit operations keep. */
+export const MIN_VERTICES = 3;
 
 /**
  * A vertex copy. `Point` is readonly for the type system, not at runtime: without the copy a caller that keeps
