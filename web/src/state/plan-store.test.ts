@@ -47,9 +47,48 @@ function fittedStoreWithZone() {
   return store;
 }
 
-/** Counts the notifications a subscriber gets while running `action` on a fitted store. */
-function countNotifications(action: (state: PlanState) => void): number {
-  const store = fittedStore();
+/** A fitted store that has a zone to select, delete or finish a draft into; the setup of `countNotifications`. */
+function preparedStore() {
+  return fittedStoreWithZone();
+}
+
+/** The four corners of AC-2: a 3 x 2 m rectangle, area 6 m², perimeter 10 m. */
+const BED_POINTS: readonly Point[] = [
+  { x: 1, y: 1 },
+  { x: 4, y: 1 },
+  { x: 4, y: 3 },
+  { x: 1, y: 3 },
+];
+
+/** A store with a canvas behind it whose ids are `zone-1`, `zone-2`, … in the order they are asked for (AC-1). */
+function drawingStore(ids: readonly string[] = ['zone-1', 'zone-2', 'zone-3']) {
+  let next = 0;
+  const store = createPlanStore({
+    newId: () => {
+      const id = ids[next];
+      if (id === undefined) throw new Error(`drawingStore: more ids asked for than given (${ids.length})`);
+      next += 1;
+      return id;
+    },
+  });
+  store.getState().setCanvasSize(CANVAS);
+  return store;
+}
+
+/** Clicks `points` into the store's running draft. */
+function addPoints(state: PlanState, points: readonly Point[]): void {
+  for (const point of points) state.addDraftPoint(point);
+}
+
+/**
+ * Counts the notifications a subscriber gets while running `action` on a fitted store. `prepare` runs before the
+ * subscription, so an action that needs a zone to act on or a drawing in progress is counted on its own write
+ * rather than on the setup's.
+ */
+function countNotifications(action: (state: PlanState) => void, prepare?: (state: PlanState) => void): number {
+  const store = preparedStore();
+
+  if (prepare) prepare(store.getState());
 
   let notifications = 0;
   const unsubscribe = store.subscribe(() => {
@@ -255,4 +294,245 @@ test('AC-8: the store only moves the viewport, never the project', () => {
 
   assert.equal(store.getState().project, project);
   assert.deepEqual(store.getState().project.baseArea, project.baseArea);
+});
+
+test('AC-1: finishDrawing with 2 points leaves the zones alone and keeps drawing', () => {
+  const store = drawingStore();
+  const before = store.getState().project;
+
+  store.getState().startDrawing('bed');
+  addPoints(store.getState(), [
+    { x: 1, y: 1 },
+    { x: 4, y: 1 },
+  ]);
+  store.getState().finishDrawing();
+
+  const after = store.getState();
+  // the same project object: not "an equal copy", nothing was written at all
+  assert.equal(after.project, before);
+  assert.equal(after.project.zones.length, 0);
+  // the two clicks are still there, so the missing corner can be added instead of started over
+  assert.deepEqual(after.drawing, {
+    type: 'bed',
+    points: [
+      { x: 1, y: 1 },
+      { x: 4, y: 1 },
+    ],
+  });
+});
+
+test('AC-1: finishDrawing with 3 points adds exactly one zone, selects it and ends drawing', () => {
+  const store = drawingStore();
+  const before = store.getState().project;
+
+  store.getState().startDrawing('bed');
+  addPoints(store.getState(), BED_POINTS.slice(0, 3));
+  store.getState().finishDrawing();
+
+  const after = store.getState();
+  assert.equal(after.project.zones.length, 1);
+  const zone = after.project.zones[0];
+  assert.equal(zone.id, 'zone-1');
+  assert.equal(zone.name, 'Bed 1');
+  assert.equal(zone.type, 'bed');
+  assert.deepEqual(zone.points, BED_POINTS.slice(0, 3));
+  // a fully edged zone (D10): every edge takes part until the user switches one off
+  assert.deepEqual(zone.edging, [true, true, true]);
+  assert.equal(after.selectedZoneId, 'zone-1');
+  assert.equal(after.drawing, null);
+  // the old project is untouched (the store never mutates a state object)
+  assert.equal(before.zones.length, 0);
+  assert.notEqual(after.project, before);
+});
+
+test('AC-1: the ids come from the injected newId, and the name numbers per type', () => {
+  const store = drawingStore(['first-id', 'second-id']);
+
+  store.getState().startDrawing('bed');
+  addPoints(store.getState(), BED_POINTS.slice(0, 3));
+  store.getState().finishDrawing();
+  store.getState().startDrawing('bed');
+  addPoints(store.getState(), BED_POINTS);
+  store.getState().finishDrawing();
+
+  const zones = store.getState().project.zones;
+  assert.deepEqual(
+    zones.map((zone) => zone.id),
+    ['first-id', 'second-id'],
+  );
+  assert.deepEqual(
+    zones.map((zone) => zone.name),
+    ['Bed 1', 'Bed 2'],
+  );
+  // the last zone drawn is the selected one
+  assert.equal(store.getState().selectedZoneId, 'second-id');
+});
+
+test('AC-1: startDrawing cancels a running draft instead of extending it', () => {
+  const store = drawingStore();
+
+  store.getState().startDrawing('bed');
+  addPoints(store.getState(), BED_POINTS.slice(0, 2));
+  store.getState().startDrawing('path');
+
+  assert.deepEqual(store.getState().drawing, { type: 'path', points: [] });
+});
+
+test('AC-1: removeLastDraftPoint drops one point, cancelDrawing drops the draft', () => {
+  const store = drawingStore();
+
+  store.getState().startDrawing('bed');
+  addPoints(store.getState(), BED_POINTS.slice(0, 3));
+  store.getState().removeLastDraftPoint();
+
+  assert.deepEqual(store.getState().drawing, { type: 'bed', points: BED_POINTS.slice(0, 2) });
+  // below the minimum there is no zone to build, and drawing goes on
+  store.getState().finishDrawing();
+  assert.equal(store.getState().project.zones.length, 0);
+  assert.notEqual(store.getState().drawing, null);
+
+  store.getState().cancelDrawing();
+  assert.equal(store.getState().drawing, null);
+  assert.equal(store.getState().project.zones.length, 0);
+});
+
+test('AC-1: addDraftPoint outside drawing mode, removeLast on an empty draft and cancel are no-ops', () => {
+  // a click on the plan outside drawing mode is not a corner of anything
+  assert.equal(
+    countNotifications((state) => state.addDraftPoint({ x: 1, y: 1 })),
+    0,
+  );
+
+  // none of these has anything to change: no write, so no notification
+  const idle = drawingStore();
+  let notifications = 0;
+  const unsubscribe = idle.subscribe(() => {
+    notifications += 1;
+  });
+  idle.getState().addDraftPoint({ x: 1, y: 1 });
+  idle.getState().removeLastDraftPoint();
+  idle.getState().cancelDrawing();
+  idle.getState().finishDrawing();
+  idle.getState().selectZone('does-not-exist');
+  idle.getState().deleteZone('does-not-exist');
+  unsubscribe();
+  assert.equal(notifications, 0);
+
+  // inside drawing mode, an empty draft has nothing to remove either
+  idle.getState().startDrawing('lawn');
+  const withEmptyDraft = idle.getState();
+  idle.getState().removeLastDraftPoint();
+  assert.equal(idle.getState().drawing, withEmptyDraft.drawing);
+});
+
+test('AC-1: deleteZone removes only that zone and clears the selection if it was selected', () => {
+  const store = drawingStore(['zone-a', 'zone-b']);
+
+  for (const type of ['bed', 'path'] as const) {
+    store.getState().startDrawing(type);
+    addPoints(store.getState(), BED_POINTS.slice(0, 3));
+    store.getState().finishDrawing();
+  }
+  const before = store.getState();
+  assert.equal(before.selectedZoneId, 'zone-b');
+  assert.equal(before.project.zones.length, 2);
+
+  store.getState().deleteZone('zone-b');
+
+  const after = store.getState();
+  assert.deepEqual(
+    after.project.zones.map((zone) => zone.id),
+    ['zone-a'],
+  );
+  // the deleted zone was the selected one, so nothing is selected now
+  assert.equal(after.selectedZoneId, null);
+  assert.equal(before.project.zones.length, 2, 'the previous project must not have been mutated');
+
+  // deleting a zone that is not the selected one keeps the selection
+  store.getState().selectZone('zone-a');
+  store.getState().deleteZone('zone-b');
+  assert.equal(store.getState().selectedZoneId, 'zone-a');
+});
+
+test('AC-1: selectZone takes an existing id and clears with null', () => {
+  const store = fittedStoreWithZone();
+
+  store.getState().selectZone('zone-1');
+  assert.equal(store.getState().selectedZoneId, 'zone-1');
+
+  store.getState().selectZone(null);
+  assert.equal(store.getState().selectedZoneId, null);
+
+  // an unknown id would leave a highlight that cannot be cleared by clicking the zone it names
+  store.getState().selectZone('zone-1');
+  store.getState().selectZone('nope');
+  assert.equal(store.getState().selectedZoneId, 'zone-1');
+});
+
+test('AC-8: every zone action that writes notifies exactly once', () => {
+  // One action at a time, so the count is the action's own: a batch total would hide an action that writes twice
+  // behind one that writes not at all. `prepare` sets up whatever the action needs to have something to change.
+  const actions: readonly [string, (state: PlanState) => void, ((state: PlanState) => void)?][] = [
+    ['startDrawing', (state) => state.startDrawing('bed')],
+    ['addDraftPoint', (state) => state.addDraftPoint({ x: 1, y: 1 }), (state) => state.startDrawing('bed')],
+    [
+      'removeLastDraftPoint',
+      (state) => state.removeLastDraftPoint(),
+      (state) => {
+        state.startDrawing('bed');
+        state.addDraftPoint({ x: 1, y: 1 });
+      },
+    ],
+    ['cancelDrawing', (state) => state.cancelDrawing(), (state) => state.startDrawing('bed')],
+    ['selectZone', (state) => state.selectZone('zone-1')],
+    ['deleteZone', (state) => state.deleteZone('zone-1')],
+  ];
+
+  for (const [name, action, prepare] of actions) {
+    assert.equal(countNotifications(action, prepare), 1, `${name} must write once`);
+  }
+
+  // `finishDrawing` only writes once the draft is a polygon; both paths are one action either way
+  const withDraft = () => {
+    const store = drawingStore();
+    store.getState().startDrawing('bed');
+    addPoints(store.getState(), BED_POINTS.slice(0, 3));
+    return store;
+  };
+  let notifications = 0;
+  const tooShort = drawingStore();
+  tooShort.getState().startDrawing('bed');
+  tooShort.getState().addDraftPoint({ x: 1, y: 1 });
+  const unsubscribeShort = tooShort.subscribe(() => {
+    notifications += 1;
+  });
+  tooShort.getState().finishDrawing();
+  unsubscribeShort();
+  assert.equal(notifications, 0, 'a draft below the minimum must not write');
+
+  notifications = 0;
+  const enough = withDraft();
+  const unsubscribe = enough.subscribe(() => {
+    notifications += 1;
+  });
+  enough.getState().finishDrawing();
+  unsubscribe();
+  assert.equal(notifications, 1, 'a finished draft must write once');
+});
+
+test('AC-1: drawing does not move the viewport and a draft keeps its own points', () => {
+  const store = drawingStore();
+  const { viewport, project } = store.getState();
+
+  store.getState().startDrawing('gravel');
+  const first = store.getState().drawing;
+  store.getState().addDraftPoint({ x: 2, y: 2 });
+  const second = store.getState().drawing;
+
+  assert.equal(store.getState().viewport, viewport);
+  assert.equal(store.getState().project, project);
+  // a new draft object per click: the previous one is not extended in place
+  assert.notEqual(first, second);
+  assert.deepEqual(first, { type: 'gravel', points: [] });
+  assert.deepEqual(second, { type: 'gravel', points: [{ x: 2, y: 2 }] });
 });
