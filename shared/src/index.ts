@@ -1,4 +1,9 @@
 export { SCHEMA_VERSION } from './model/schema-version.js';
+export { ZONE_TYPES, isZoneType } from './model/zone-type.js';
+export type { ZoneType } from './model/zone-type.js';
+export type { BaseArea, Project, Zone } from './model/project.js';
+export { addZone, createPolygonBaseArea, createProject, createRectangleBaseArea, createZone } from './model/factories.js';
+export type { CreateProjectInput, CreateZoneInput } from './model/factories.js';
 export type { Point } from './geometry/point.js';
 export { polygonArea } from './geometry/polygon-area.js';
 export { polygonPerimeter } from './geometry/polygon-perimeter.js';
