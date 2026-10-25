@@ -1,0 +1,147 @@
+/*
+ * Application styling. Every colour is a custom property, so the dark variant below only swaps values and the
+ * components never mention a colour.
+ *
+ * Contrast, light / dark: title and scale-bar label 15.0 / 15.8, header and button 16.1 / 14.4 against their
+ * surface, the "Fit" label 5.1 / 4.8 against its button, the base-area outline 5.0 against its fill. The grid lines
+ * are the one deliberate exception at 1.2 / 1.4: a grid has to stay background, the plan reads without it and the
+ * scale bar carries the measurement. They are never the only way to read a value.
+ */
+:root {
+  --gp-page-bg: #f6f7f4;
+  --gp-surface: #ffffff;
+  --gp-text: #1b231c;
+  --gp-border: #d5dbd3;
+  --gp-grid-line: #dde3db;
+  --gp-base-fill: #dcefd6;
+  /* dark enough for 5.0:1 against the fill it is drawn on, so the outline is readable, not just decorative */
+  --gp-base-stroke: #2a7030;
+  --gp-scale-bar: #1b231c;
+  --gp-button-bg: #2f7d32;
+  --gp-button-text: #ffffff;
+  --gp-focus: #16501a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --gp-page-bg: #14181a;
+    --gp-surface: #1b2124;
+    --gp-text: #eef2ee;
+    --gp-border: #333c40;
+    --gp-grid-line: #2b3336;
+    --gp-base-fill: #23402a;
+    --gp-base-stroke: #7ac47f;
+    --gp-scale-bar: #eef2ee;
+    --gp-button-bg: #3f8f45;
+    --gp-button-text: #0d100e;
+    --gp-focus: #a9d8ad;
+  }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--gp-page-bg);
+  color: var(--gp-text);
+  font-family:
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    sans-serif;
+}
+
+/* The shell fills the viewport: the plan takes the height the header leaves, and the page itself never scrolls. */
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.app-header {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 1rem;
+  background: var(--gp-surface);
+  border-bottom: 1px solid var(--gp-border);
+}
+
+/* clamp() keeps the title and the Fit button on one line down to 320 px, where the page must not overflow. */
+.app-title {
+  margin: 0;
+  font-size: clamp(1rem, 4vw, 1.5rem);
+  line-height: 1.3;
+}
+
+.fit-button {
+  padding: 0.35rem 0.9rem;
+  background: var(--gp-button-bg);
+  color: var(--gp-button-text);
+  font: inherit;
+  font-size: 0.9rem;
+  border: 1px solid var(--gp-button-bg);
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.fit-button:focus-visible {
+  outline: 2px solid var(--gp-focus);
+  outline-offset: 2px;
+}
+
+.plan-view {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Oversized and clipped by the wrapper: the SVG's own box is what the ResizeObserver measures. */
+.plan-svg {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* the drag pan is a pointer gesture; without this the browser would scroll instead of handing over the moves */
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+}
+
+.plan-svg:active {
+  cursor: grabbing;
+}
+
+.plan-grid-line {
+  stroke: var(--gp-grid-line);
+  stroke-width: 1;
+}
+
+.plan-base-area {
+  fill: var(--gp-base-fill);
+  stroke: var(--gp-base-stroke);
+  stroke-width: 2;
+}
+
+.plan-scale-bar {
+  stroke: var(--gp-scale-bar);
+  stroke-width: 2;
+}
+
+.plan-scale-bar-label {
+  fill: var(--gp-text);
+  stroke: none;
+  font-size: 0.75rem;
+  font-family: inherit;
+}
