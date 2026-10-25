@@ -18,5 +18,5 @@ export { isValidPolygon, validatePolygon } from './geometry/polygon-validity.js'
 export type { PolygonIssue } from './geometry/polygon-validity.js';
 export { DISPLAY_DECIMALS, type LengthUnit } from './units/length-unit.js';
 export { toMeters, fromMeters } from './units/convert.js';
-export { formatLength, formatArea } from './units/format.js';
+export { formatLength, formatLengthValue, formatArea } from './units/format.js';
 export { parseLength } from './units/parse.js';

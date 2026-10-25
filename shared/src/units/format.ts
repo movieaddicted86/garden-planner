@@ -10,15 +10,26 @@ function assertFinite(value: number, caller: string): void {
 }
 
 /**
- * Fixed notation of a single length for display (D2): the stored metres are converted into `unit` first
- * (`1.005 m` in `cm` is `101 cm`), then rounded to that unit's decimals. A dot as decimal separator, no
- * thousands separator, a space and the unit. Never `-0.00 m` or `-0 cm`. Independent of the machine's locale.
+ * Fixed notation of the **number** of a length in `unit`, without the unit: the stored metres are converted into
+ * `unit` first (`1.005 m` in `cm` is `101`), then rounded to that unit's decimals. A dot as decimal separator, no
+ * thousands separator, never `-0.00` or `-0`. Independent of the machine's locale.
+ *
+ * An input field needs exactly this: `parseLength` of the text it shows has to give the stored value back, and a
+ * unit suffix in the field would be rejected by `parseLength`. `formatLength` adds the unit for display.
  */
-export function formatLength(meters: number, unit: LengthUnit): string {
-  assertFinite(meters, 'formatLength');
+export function formatLengthValue(meters: number, unit: LengthUnit): string {
+  assertFinite(meters, 'formatLengthValue');
   const decimals = DISPLAY_DECIMALS[unit];
   const rounded = roundHalfAwayFromZero(fromMeters(meters, unit), decimals);
-  return `${rounded.toFixed(decimals)} ${unit}`;
+  return rounded.toFixed(decimals);
+}
+
+/**
+ * Fixed notation of a single length for display (D2): the number of `formatLengthValue` followed by a space and
+ * the unit. Never `-0.00 m` or `-0 cm`.
+ */
+export function formatLength(meters: number, unit: LengthUnit): string {
+  return `${formatLengthValue(meters, unit)} ${unit}`;
 }
 
 /**

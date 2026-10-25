@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatArea, formatLength, parseLength, type LengthUnit } from '../index.js';
+import { formatArea, formatLength, formatLengthValue, parseLength, type LengthUnit } from '../index.js';
 
 test('formatLength uses the decimals of the unit (AC-3)', () => {
   assert.equal(formatLength(1.005, 'm'), '1.01 m');
@@ -24,6 +24,44 @@ test('formatLength writes a dot, never a comma, and always the unit (D2)', () =>
   assert.equal(formatLength(1234.5, 'm'), '1234.50 m');
   assert.equal(formatLength(1234.5, 'cm'), '123450 cm');
   assert.equal(formatLength(1.5, 'cm'), '150 cm');
+});
+
+test('formatLengthValue is the number of formatLength without the unit (AC-1)', () => {
+  assert.equal(formatLengthValue(10, 'm'), '10.00');
+  assert.equal(formatLengthValue(10, 'cm'), '1000');
+  assert.equal(formatLengthValue(1.005, 'm'), '1.01');
+  assert.equal(formatLengthValue(1.005, 'cm'), '101');
+  assert.equal(formatLengthValue(-0.001, 'm'), '0.00');
+  assert.equal(formatLengthValue(-0.004, 'cm'), '0');
+});
+
+test('formatLengthValue never shows a negative zero (AC-1, D2)', () => {
+  assert.equal(formatLengthValue(-0, 'm'), '0.00');
+  assert.equal(formatLengthValue(-0, 'cm'), '0');
+  assert.equal(formatLengthValue(-1e-9, 'cm'), '0');
+});
+
+test('formatLengthValue throws a RangeError for a non-finite value (AC-1)', () => {
+  for (const broken of [Number.NaN, Number.POSITIVE_INFINITY, Number.NEGATIVE_INFINITY]) {
+    assert.throws(
+      () => formatLengthValue(broken, 'm'),
+      (error: unknown) => error instanceof RangeError && error.message.includes('formatLengthValue'),
+    );
+  }
+});
+
+/** Twenty values across both units' decimals, with float noise (7 * 0.05, 1.15, 2.675 …) on purpose. */
+const COMPOSITION_TABLE: readonly number[] = [
+  0, 1, -1, 1.5, -1.5, 0.05, -0.05, 0.35, 3.15, 1.15, 2.675, -2.675, 12.345, -12.345, 0.07, 1234.56, -0.004, 0.004, 100000, -100000,
+];
+
+test('formatLength is formatLengthValue plus a space and the unit (AC-1)', () => {
+  assert.equal(COMPOSITION_TABLE.length, 20);
+  for (const unit of ['m', 'cm'] as const) {
+    for (const meters of COMPOSITION_TABLE) {
+      assert.equal(formatLength(meters, unit), `${formatLengthValue(meters, unit)} ${unit}`, `${meters} in ${unit}`);
+    }
+  }
 });
 
 test('formatArea always shows m² with two decimals (AC-4)', () => {

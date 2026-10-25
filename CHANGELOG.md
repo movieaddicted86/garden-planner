@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- web: unit toggle and base-area form with live area and perimeter (T-009)
 - web: SVG plan view with grid, scale bar, zoom, pan and fit (T-008)
 - web: plan viewport maths and plan store (T-007)
 - shared: point-in-polygon, zone overlap and outside-base warnings (T-006)
