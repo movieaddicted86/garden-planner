@@ -6,6 +6,11 @@
  * surface, the "Fit" label 5.1 / 4.8 against its button, the base-area outline 5.0 against its fill. The grid lines
  * are the one deliberate exception at 1.2 / 1.4: a grid has to stay background, the plan reads without it and the
  * scale bar carries the measurement. They are never the only way to read a value.
+ *
+ * The panel follows the same rule: the invalid-field message is 9.0 / 9.4 against its surface, the disabled Apply
+ * label 11.6 / 11.2 against the surface it is filled with, and the checked unit option 5.1 / 4.8 — the same pair as
+ * the buttons. An invalid field is never marked by colour alone: the message under it says what is wrong and the
+ * field carries `aria-invalid`.
  */
 :root {
   --gp-page-bg: #f6f7f4;
@@ -20,6 +25,7 @@
   --gp-button-bg: #2f7d32;
   --gp-button-text: #ffffff;
   --gp-focus: #16501a;
+  --gp-error: #b3261e;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -35,6 +41,7 @@
     --gp-button-bg: #3f8f45;
     --gp-button-text: #0d100e;
     --gp-focus: #a9d8ad;
+    --gp-error: #f2b8b5;
   }
 }
 
@@ -55,13 +62,23 @@ body {
     sans-serif;
 }
 
-/* The shell fills the viewport: the plan takes the height the header leaves, and the page itself never scrolls. */
+/*
+ * Narrow screen: the panel sits below the plan, the plan keeps a usable height (45 vh) and the page scrolls down
+ * to the panel. The shell is at least the viewport tall rather than exactly, so the panel is reachable instead of
+ * being clipped by it. `overflow-x` is pinned so the width of a control can never give the page a side scrollbar.
+ */
 .app-shell {
   display: flex;
   flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  overflow: hidden;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+/* The plan and the panel side by side; the shell above decides the height the plan works with. */
+.app-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
 }
 
 .app-header {
@@ -99,10 +116,11 @@ body {
   outline-offset: 2px;
 }
 
+/* The plan is measured by its own box: whatever the shell leaves it here is the canvas the store fits into. */
 .plan-view {
   position: relative;
   flex: 1 1 auto;
-  min-height: 0;
+  min-height: 45vh;
   overflow: hidden;
 }
 
@@ -144,4 +162,184 @@ body {
   stroke: none;
   font-size: 0.75rem;
   font-family: inherit;
+}
+
+/*
+ * The base-area panel: the unit toggle, the rectangle form and the two figures. It scrolls on its own once it is
+ * a column beside the plan, so a taller panel never pushes the header out of the window.
+ */
+.base-area-panel {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: 0.85rem;
+  box-sizing: border-box;
+  padding: 0.85rem 1rem 1rem;
+  background: var(--gp-surface);
+  border-top: 1px solid var(--gp-border);
+}
+
+.base-area-heading {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+/* The two options of the toggle. A segmented control rather than two buttons: the checked one is a state. */
+.unit-toggle {
+  display: flex;
+  gap: 0.25rem;
+  align-self: flex-start;
+  padding: 0.15rem;
+  background: var(--gp-page-bg);
+  border: 1px solid var(--gp-border);
+  border-radius: 0.3rem;
+}
+
+.unit-option {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.9rem;
+  border-radius: 0.2rem;
+  cursor: pointer;
+}
+
+.unit-option:has(input:checked) {
+  background: var(--gp-button-bg);
+  color: var(--gp-button-text);
+}
+
+.unit-option:has(input:focus-visible) {
+  outline: 2px solid var(--gp-focus);
+  outline-offset: 2px;
+}
+
+/* The fields wrap instead of shrinking: at 320 px each one keeps the width it needs to stay usable. */
+.length-fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.length-field {
+  display: flex;
+  flex: 1 1 8rem;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.length-field-label {
+  font-size: 0.85rem;
+}
+
+/* The input and the unit of the value in it, so the field reads "10.00 m" without the unit being in the text. */
+.length-field-input {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.length-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 0.3rem 0.45rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--gp-text);
+  background: var(--gp-page-bg);
+  border: 1px solid var(--gp-border);
+  border-radius: 0.25rem;
+}
+
+.length-input[aria-invalid='true'] {
+  border-color: var(--gp-error);
+}
+
+.length-input:focus-visible {
+  outline: 2px solid var(--gp-focus);
+  outline-offset: 1px;
+}
+
+.length-field-unit {
+  font-size: 0.85rem;
+}
+
+.length-field-error {
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  color: var(--gp-error);
+}
+
+.apply-button {
+  align-self: flex-start;
+  padding: 0.35rem 0.9rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--gp-button-text);
+  background: var(--gp-button-bg);
+  border: 1px solid var(--gp-button-bg);
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+/* Readable, not faded: the label keeps its contrast while the fill says the button does nothing right now. */
+.apply-button:disabled {
+  color: var(--gp-text);
+  background: var(--gp-border);
+  border-color: var(--gp-border);
+  cursor: not-allowed;
+}
+
+.apply-button:focus-visible {
+  outline: 2px solid var(--gp-focus);
+  outline-offset: 2px;
+}
+
+.base-area-figures {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.base-area-figures dd {
+  margin: 0;
+  /* the figures change while the user types a size: tabular digits keep them from jumping around */
+  font-variant-numeric: tabular-nums;
+}
+
+/*
+ * From 720 px the panel is a column beside the plan instead of a block below it. The shell goes back to exactly
+ * one viewport tall — the plan takes the height the header leaves, the panel scrolls inside its own column.
+ */
+@media (min-width: 720px) {
+  .app-shell {
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .app-body {
+    flex-direction: row;
+    min-height: 0;
+  }
+
+  .plan-view {
+    min-width: 0;
+    min-height: 0;
+  }
+
+  .base-area-panel {
+    width: 19rem;
+    overflow-y: auto;
+    border-top: none;
+    border-left: 1px solid var(--gp-border);
+  }
 }

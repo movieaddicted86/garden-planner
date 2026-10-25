@@ -14,6 +14,8 @@ export function PlanView() {
   const viewport = usePlanStore((state) => state.viewport);
   const size = usePlanStore((state) => state.canvasSize);
   const baseArea = usePlanStore((state) => state.project.baseArea);
+  // read as a primitive, so a unit switch re-renders this component, but a store write to anything else does not
+  const displayUnit = usePlanStore((state) => state.project.displayUnit);
 
   usePlanInteraction(svgRef);
 
@@ -43,7 +45,7 @@ export function PlanView() {
               })
               .join(' ')}
           />
-          <PlanScaleBar viewport={viewport} size={size} />
+          <PlanScaleBar viewport={viewport} size={size} unit={displayUnit} />
         </>
       )}
     </svg>
