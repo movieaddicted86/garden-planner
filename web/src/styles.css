@@ -343,10 +343,13 @@ body {
 }
 
 /*
- * The zones on the plan. The fill and the stroke come from the zone's type (the custom property is set inline by
- * the component), so this only decides how thick the outline is and how strongly the fill shows.
+ * The zones on the plan. `--zone-color` is the type's colour, set inline by the zone component; the stylesheet
+ * decides where it is used, so the rules below can override it — which is exactly what makes an invalid zone red
+ * (an inline `stroke` would win against that rule).
  */
 .plan-zone {
+  fill: var(--zone-color);
+  stroke: var(--zone-color);
   fill-opacity: 0.35;
   stroke-width: 2;
 }
@@ -358,6 +361,7 @@ body {
 
 /* An invalid zone (D5) is red and dashed, and its figures are missing in the list — two signals, not one. */
 .plan-zone[data-invalid='true'] {
+  fill: var(--gp-error);
   stroke: var(--gp-error);
   stroke-dasharray: 6 4;
 }
@@ -372,15 +376,17 @@ body {
 
 /*
  * The draft: dashed and unclosed, so it reads as "not a zone yet" next to the solid outlines below it. The colour
- * is the type's, set inline; only the dash pattern and the handle's outline live here.
+ * is the type's, handed over as `--zone-color` like the zones'.
  */
 .plan-draft-line {
   fill: none;
+  stroke: var(--zone-color);
   stroke-width: 2;
   stroke-dasharray: 6 4;
 }
 
 .plan-draft-handle {
+  fill: var(--zone-color);
   stroke: var(--gp-surface);
   stroke-width: 1.5;
 }

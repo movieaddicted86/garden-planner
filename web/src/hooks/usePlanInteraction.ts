@@ -24,6 +24,15 @@ interface GestureState {
 }
 
 /**
+ * The elements that own their keystrokes. A key pressed in one of them belongs to that control — Backspace edits
+ * the field, Enter and Space activate the button — so the drawing keys do not fire there.
+ */
+function isFormControl(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable;
+}
+
+/**
  * Registers the plan's input gestures on `svg`: wheel zoom around the cursor, drag pan, click-to-add-a-corner
  * while drawing, the drawing keys, and the canvas size from a `ResizeObserver`. Returns the cleanup that removes
  * all of them.
@@ -51,9 +60,11 @@ function attachPlanInteraction(svg: SVGSVGElement): () => void {
   let gesture: GestureState | null = null;
 
   function onPointerDown(event: PointerEvent): void {
-    // Left button only, and only on the background: dragging the base area itself is a later, editing gesture.
+    // Left button only. The base area is not draggable, but in drawing mode a click on it **is** a corner: every
+    // zone corner lies inside the base area, so swallowing those clicks would make drawing impossible.
     if (event.button !== 0) return;
-    if (event.target instanceof Element && event.target.classList.contains(BASE_AREA_CLASS)) return;
+    const onBaseArea = event.target instanceof Element && event.target.classList.contains(BASE_AREA_CLASS);
+    if (onBaseArea && !planStore.getState().drawing) return;
     drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
     // recorded before the capture, so the up event can compare the two ends of the gesture
     gesture = { pointerId: event.pointerId, fromX: event.clientX, fromY: event.clientY };
@@ -86,8 +97,13 @@ function attachPlanInteraction(svg: SVGSVGElement): () => void {
     state.addDraftPoint(screenToWorld(state.viewport, screen));
   }
 
-  /** The drawing keys, read while the plan or the panel has focus (the task's binding decision). */
+  /** The drawing keys, read while the plan **or the panel** has focus (the task's binding decision). */
   function onKeyDown(event: KeyboardEvent): void {
+    // A form control keeps its own keys: Backspace has to edit the base-area fields, and Enter and Space activate
+    // the button or select they belong to. Only a key pressed on the plan or on the panel around it is a drawing
+    // key, which is why the listener sits on the document rather than on the SVG alone.
+    if (isFormControl(event.target)) return;
+
     const state = planStore.getState();
     if (event.key === 'Escape') {
       // Escape also drops a selection, so the key always means "back out of what I am doing".
@@ -102,7 +118,7 @@ function attachPlanInteraction(svg: SVGSVGElement): () => void {
       event.preventDefault();
       state.removeLastDraftPoint();
     } else return;
-    // Enter is a button activation key too: without this, a focused "Finish" would run the action twice.
+    // ... and Enter must not also activate whatever is focused next to the plan
     event.preventDefault();
   }
 
@@ -119,9 +135,9 @@ function attachPlanInteraction(svg: SVGSVGElement): () => void {
   svg.addEventListener('pointermove', onPointerMove);
   svg.addEventListener('pointerup', onPointerUp);
   svg.addEventListener('pointercancel', onPointerUp);
-  // on the SVG rather than on the window: the keys belong to the plan, and a window listener would also fire
-  // while the user types in the panel's number fields.
-  svg.addEventListener('keydown', onKeyDown);
+  // On the document, not on the SVG: the keys belong to the drawing, and the plan may not have the focus — after
+  // clicking "Draw zone" the focus is on the panel's button, and Escape must still cancel the draft.
+  document.addEventListener('keydown', onKeyDown);
   observer.observe(svg);
 
   return () => {
@@ -130,7 +146,7 @@ function attachPlanInteraction(svg: SVGSVGElement): () => void {
     svg.removeEventListener('pointermove', onPointerMove);
     svg.removeEventListener('pointerup', onPointerUp);
     svg.removeEventListener('pointercancel', onPointerUp);
-    svg.removeEventListener('keydown', onKeyDown);
+    document.removeEventListener('keydown', onKeyDown);
     // Without `disconnect` the observer keeps the element (and the store write) alive after the unmount.
     observer.disconnect();
   };

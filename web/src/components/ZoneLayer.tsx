@@ -1,6 +1,10 @@
 import { isValidPolygon, type Zone } from '@garden-planner/shared';
+import type { CSSProperties } from 'react';
 import { boundsOf, worldToScreen, type Viewport } from '../plan/viewport.js';
 import { zoneColor } from '../plan/zone-style.js';
+
+/** The custom property a zone carries its type colour in; the stylesheet reads it for the fill and the stroke. */
+type ZoneStyle = CSSProperties & { '--zone-color': string };
 
 /** The class of a zone outline; a selected zone gets the additional class below. */
 const ZONE_CLASS = 'plan-zone';
@@ -36,6 +40,9 @@ function screenPoints(viewport: Viewport, points: readonly { x: number; y: numbe
  * `isValidPolygon` is `shared/`'s rule, called here rather than re-implemented: the plan and the list have to
  * reach the same verdict about the same zone. Everything is converted with `worldToScreen`, so zones, base area
  * and grid share one coordinate maths and the SVG keeps one user unit per CSS pixel.
+ *
+ * The type colour is handed over as a custom property, not as an inline `fill`/`stroke`: an inline value would win
+ * against the stylesheet, and the rule that paints an invalid zone red could never take effect.
  */
 export function ZoneLayer({ zones, viewport, selectedZoneId }: ZoneLayerProps) {
   return (
@@ -45,7 +52,6 @@ export function ZoneLayer({ zones, viewport, selectedZoneId }: ZoneLayerProps) {
         const centre = worldToScreen(viewport, { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 });
         const invalid = !isValidPolygon(zone.points);
         const selected = zone.id === selectedZoneId;
-        const color = zoneColor(zone.type);
         return (
           <g key={zone.id}>
             <polygon
@@ -55,7 +61,7 @@ export function ZoneLayer({ zones, viewport, selectedZoneId }: ZoneLayerProps) {
               {...(invalid ? { 'data-invalid': 'true' } : {})}
               {...(selected ? { 'data-selected': 'true' } : {})}
               points={screenPoints(viewport, zone.points)}
-              style={{ fill: color, stroke: color }}
+              style={{ '--zone-color': zoneColor(zone.type) } as ZoneStyle}
             />
             {/* the name is not a measurement: it is drawn in the text colour, in a plain font size (no zoom) */}
             <text
