@@ -7,7 +7,9 @@ zone gets a layer build-up; the app shows area and perimeter live and calculates
 and in total (slabs incl. waste, bulk material in m3 and tonnes, edging in running metres). Projects are saved
 as JSON on the server; the plan exports as PNG and the material list as CSV.
 
-> Status: skeleton. The MVP scope and the order of work are in the roadmap; the acceptance test is
+> Status: skeleton. The plan view is visible: the demo 10 m × 6 m base area is drawn as SVG on a metre grid with a
+> scale bar, and can be zoomed (mouse wheel), panned (drag) and fitted (the "Fit" button). The MVP scope and the order
+> of work are in the roadmap; the acceptance test is
 > [docs/UAT.md](docs/UAT.md). This project is also the second validation of
 > [ai-dev-framework](https://github.com/movieaddicted86/ai-dev-framework).
 

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- web: SVG plan view with grid, scale bar, zoom, pan and fit (T-008)
 - web: plan viewport maths and plan store (T-007)
 - shared: point-in-polygon, zone overlap and outside-base warnings (T-006)
 - shared: zone vertex/edge operations (T-005)
