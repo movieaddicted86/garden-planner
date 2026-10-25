@@ -1,13 +1,6 @@
 import { assertFinitePoints } from './assert-finite-points.js';
+import { distanceToSegment, edgeEnd, GEOMETRY_EPSILON, properlyCross } from './polygon-primitives.js';
 import type { Point } from './point.js';
-
-/**
- * Distance in metres below which two shapes count as touching. The tolerance is absolute, not relative: plan
- * coordinates are metres in one garden (a few dozen metres across, never more than a few kilometres from the
- * origin), so a length computed from them in double precision carries an error of ~1e-16 relative — orders of
- * magnitude below 1e-9 m (1 nm), a length no drawing or input can express on purpose.
- */
-export const GEOMETRY_EPSILON = 1e-9;
 
 /** Why a polygon cannot be used (D5). `edgeA < edgeB`, edges numbered as in D4. */
 export type PolygonIssue =
@@ -15,41 +8,9 @@ export type PolygonIssue =
   | { kind: 'duplicate_vertex'; index: number } // vertex `index` is within GEOMETRY_EPSILON of vertex `(index + 1) mod n`: edge `index` has no length
   | { kind: 'self_intersection'; edgeA: number; edgeB: number };
 
-/** Edge `i` runs from vertex `i` to vertex `(i + 1) mod n` (D4). */
-function edgeEnd(points: readonly Point[], index: number): Point {
-  return points[(index + 1) % points.length];
-}
-
 /** The two edges are neighbours: `j === i + 1`, or `i === 0` and `j === n - 1` (the closing edge). */
 function isAdjacent(edgeA: number, edgeB: number, vertexCount: number): boolean {
   return edgeB === edgeA + 1 || (edgeA === 0 && edgeB === vertexCount - 1);
-}
-
-/** Distance from `point` to the segment `a`–`b`, clamped to the segment (an endpoint outside does not count). */
-function distanceToSegment(point: Point, a: Point, b: Point): number {
-  const abx = b.x - a.x;
-  const aby = b.y - a.y;
-  const lengthSquared = abx * abx + aby * aby;
-  if (lengthSquared === 0) {
-    return Math.hypot(point.x - a.x, point.y - a.y);
-  }
-  const projection = ((point.x - a.x) * abx + (point.y - a.y) * aby) / lengthSquared;
-  const t = Math.min(1, Math.max(0, projection));
-  return Math.hypot(point.x - (a.x + t * abx), point.y - (a.y + t * aby));
-}
-
-/** Orientation of the triangle (a, b, c): > 0 counter-clockwise, < 0 clockwise, 0 collinear. */
-function cross(a: Point, b: Point, c: Point): number {
-  return (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-}
-
-/** A proper crossing: the segments meet in the interior of both. Touching is left to the distance test. */
-function properlyCross(a: Point, b: Point, c: Point, d: Point): boolean {
-  const abc = cross(a, b, c);
-  const abd = cross(a, b, d);
-  const cda = cross(c, d, a);
-  const cdb = cross(c, d, b);
-  return ((abc > 0 && abd < 0) || (abc < 0 && abd > 0)) && ((cda > 0 && cdb < 0) || (cda < 0 && cdb > 0));
 }
 
 /**
