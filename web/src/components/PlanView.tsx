@@ -1,0 +1,51 @@
+import { useRef } from 'react';
+import { usePlanStore } from '../state/use-plan-store.js';
+import { worldToScreen } from '../plan/viewport.js';
+import { usePlanInteraction } from '../hooks/usePlanInteraction.js';
+import { PlanGrid } from './PlanGrid.js';
+import { PlanScaleBar } from './PlanScaleBar.js';
+
+/** The decimals `data-scale` reports; the attribute is read by the E2E spec, which needs a stable string. */
+const SCALE_ATTRIBUTE_DECIMALS = 3;
+
+/** The plan canvas: the demo base area on the metre grid, with the gestures that move the viewport. */
+export function PlanView() {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const viewport = usePlanStore((state) => state.viewport);
+  const size = usePlanStore((state) => state.canvasSize);
+  const baseArea = usePlanStore((state) => state.project.baseArea);
+
+  usePlanInteraction(svgRef);
+
+  // A canvas that has not been measured yet has no room to fit the plan into: drawing the placeholder viewport
+  // would put the base area at an arbitrary place for one frame. The first `setCanvasSize` fits it (T-007).
+  const measured = size.width > 0 && size.height > 0;
+
+  return (
+    <svg
+      ref={svgRef}
+      className="plan-svg"
+      data-testid="plan-svg"
+      role="img"
+      aria-label="Garden plan"
+      data-scale={viewport.scale.toFixed(SCALE_ATTRIBUTE_DECIMALS)}
+    >
+      {measured && (
+        <>
+          <PlanGrid viewport={viewport} size={size} />
+          <polygon
+            className="plan-base-area"
+            data-testid="base-area"
+            points={baseArea.points
+              .map((point) => {
+                const screen = worldToScreen(viewport, point);
+                return `${screen.x},${screen.y}`;
+              })
+              .join(' ')}
+          />
+          <PlanScaleBar viewport={viewport} size={size} />
+        </>
+      )}
+    </svg>
+  );
+}
