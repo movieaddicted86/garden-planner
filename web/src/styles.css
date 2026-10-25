@@ -26,6 +26,16 @@
   --gp-button-text: #ffffff;
   --gp-focus: #16501a;
   --gp-error: #b3261e;
+  /* Zone type colours (D7), one per type, used as the fill and the stroke of a zone. Each is dark enough to be
+     read against the base-area fill of both themes: path 4.47, patio 4.66, bed 4.57, gravel 4.43, lawn 4.23,
+     tree_pit 4.11, parking 8.55. A zone is never told apart by colour alone — the name is written on it. */
+  --zone-path: #9c5a14;
+  --zone-patio: #5f6875;
+  --zone-bed: #c02b6a;
+  --zone-gravel: #7d5ba6;
+  --zone-lawn: #2f7d32;
+  --zone-tree-pit: #1f7a8c;
+  --zone-parking: #37414f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -42,6 +52,15 @@
     --gp-button-text: #0d100e;
     --gp-focus: #a9d8ad;
     --gp-error: #f2b8b5;
+    /* The dark variants against the dark base-area fill: path 5.13, patio 4.53, bed 3.96, gravel 4.25, lawn 5.12,
+       tree_pit 4.99, parking 4.07 — the same type reads as the same colour family, not as the same value. */
+    --zone-path: #e0a24a;
+    --zone-patio: #9aa4b2;
+    --zone-bed: #ef6ba0;
+    --zone-gravel: #b18ee0;
+    --zone-lawn: #6cc06f;
+    --zone-tree-pit: #52b9cc;
+    --zone-parking: #8f9bb0;
   }
 }
 
@@ -165,18 +184,26 @@ body {
 }
 
 /*
- * The base-area panel: the unit toggle, the rectangle form and the two figures. It scrolls on its own once it is
- * a column beside the plan, so a taller panel never pushes the header out of the window.
+ * The panel stack beside/below the plan: the base-area panel and the zone panel share one column, so the layout
+ * breakpoint is written once here instead of in each panel.
  */
-.base-area-panel {
+.app-panels {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  background: var(--gp-surface);
+  border-top: 1px solid var(--gp-border);
+}
+
+/* One panel of the stack: the border is the stack's, the padding and the column layout are each panel's own. */
+.base-area-panel,
+.zone-panel {
   display: flex;
   flex: none;
   flex-direction: column;
   gap: 0.85rem;
   box-sizing: border-box;
   padding: 0.85rem 1rem 1rem;
-  background: var(--gp-surface);
-  border-top: 1px solid var(--gp-border);
 }
 
 .base-area-heading {
@@ -316,8 +343,230 @@ body {
 }
 
 /*
- * From 720 px the panel is a column beside the plan instead of a block below it. The shell goes back to exactly
- * one viewport tall — the plan takes the height the header leaves, the panel scrolls inside its own column.
+ * The zones on the plan. `--zone-color` is the type's colour, set inline by the zone component; the stylesheet
+ * decides where it is used, so the rules below can override it — which is exactly what makes an invalid zone red
+ * (an inline `stroke` would win against that rule).
+ */
+.plan-zone {
+  fill: var(--zone-color);
+  stroke: var(--zone-color);
+  fill-opacity: 0.35;
+  stroke-width: 2;
+}
+
+/* The selected zone is marked by its outline and by a wider stroke: not by colour, which is the type's. */
+.plan-zone-selected {
+  stroke-width: 4;
+}
+
+/* An invalid zone (D5) is red and dashed, and its figures are missing in the list — two signals, not one. */
+.plan-zone[data-invalid='true'] {
+  fill: var(--gp-error);
+  stroke: var(--gp-error);
+  stroke-dasharray: 6 4;
+}
+
+/* The name sits on the zone, so a zone is identifiable without reading the list. */
+.plan-zone-label {
+  fill: var(--gp-text);
+  stroke: none;
+  font-family: inherit;
+  pointer-events: none;
+}
+
+/*
+ * The draft: dashed and unclosed, so it reads as "not a zone yet" next to the solid outlines below it. The colour
+ * is the type's, handed over as `--zone-color` like the zones'.
+ */
+.plan-draft-line {
+  fill: none;
+  stroke: var(--zone-color);
+  stroke-width: 2;
+  stroke-dasharray: 6 4;
+}
+
+.plan-draft-handle {
+  fill: var(--zone-color);
+  stroke: var(--gp-surface);
+  stroke-width: 1.5;
+}
+
+.zone-heading {
+  margin: 0;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
+.zone-draw {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.zone-type-label {
+  font-size: 0.85rem;
+}
+
+.zone-type-select,
+.zone-button {
+  padding: 0.3rem 0.45rem;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--gp-text);
+  background: var(--gp-page-bg);
+  border: 1px solid var(--gp-border);
+  border-radius: 0.25rem;
+}
+
+.zone-type-select:focus-visible,
+.zone-button:focus-visible {
+  outline: 2px solid var(--gp-focus);
+  outline-offset: 1px;
+}
+
+.zone-draw-hint {
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.35;
+}
+
+.zone-draw-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.zone-button {
+  color: var(--gp-button-text);
+  background: var(--gp-button-bg);
+  border-color: var(--gp-button-bg);
+  cursor: pointer;
+}
+
+/* The secondary action stays quiet: it is the way out, not the way on. */
+.zone-button-secondary {
+  color: var(--gp-text);
+  background: var(--gp-page-bg);
+  border-color: var(--gp-border);
+}
+
+/* Readable, not faded: the label keeps its contrast while the fill says the button does nothing right now. */
+.zone-button:disabled {
+  color: var(--gp-text);
+  background: var(--gp-border);
+  border-color: var(--gp-border);
+  cursor: not-allowed;
+}
+
+.zone-point-count {
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.zone-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.zone-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: var(--gp-page-bg);
+  border: 1px solid var(--gp-border);
+  border-radius: 0.25rem;
+}
+
+/* The row is the selection target; the Delete button sits next to it, not inside it. */
+.zone-item-main {
+  display: grid;
+  flex: 1 1 auto;
+  grid-template-columns: auto 1fr;
+  gap: 0.15rem 0.6rem;
+  min-width: 0;
+  cursor: pointer;
+  border-radius: 0.2rem;
+}
+
+.zone-item-main:focus-visible {
+  outline: 2px solid var(--gp-focus);
+  outline-offset: 1px;
+}
+
+/* The selection is also visible on the plan (the zone's own outline), so the two always agree. */
+.zone-item-selected {
+  font-weight: 600;
+}
+
+.zone-item-name {
+  overflow-wrap: anywhere;
+}
+
+.zone-item-type {
+  font-size: 0.85rem;
+}
+
+.zone-invalid-badge {
+  grid-column: 1 / -1;
+  font-size: 0.85rem;
+  color: var(--gp-error);
+}
+
+.zone-figures {
+  display: grid;
+  grid-column: 1 / -1;
+  grid-template-columns: auto 1fr;
+  gap: 0.1rem 0.6rem;
+  margin: 0.15rem 0 0;
+  font-size: 0.85rem;
+}
+
+.zone-figures dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.zone-delete {
+  flex: none;
+  padding: 0.25rem 0.6rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--gp-text);
+  background: var(--gp-surface);
+  border: 1px solid var(--gp-border);
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.zone-delete:hover {
+  border-color: var(--gp-error);
+  color: var(--gp-error);
+}
+
+.zone-delete:focus-visible {
+  outline: 2px solid var(--gp-focus);
+  outline-offset: 1px;
+}
+
+/* A warning, not an error: the zones keep their figures, so this is not drawn in the error colour. */
+.zone-warnings {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0 0 0 1.1rem;
+  font-size: 0.85rem;
+}
+
+/*
+ * From 720 px the panels are a column beside the plan instead of a block below it. The shell goes back to exactly
+ * one viewport tall — the plan takes the height the header leaves, the panels scroll inside their own column.
  */
 @media (min-width: 720px) {
   .app-shell {
@@ -336,7 +585,7 @@ body {
     min-height: 0;
   }
 
-  .base-area-panel {
+  .app-panels {
     width: 19rem;
     overflow-y: auto;
     border-top: none;

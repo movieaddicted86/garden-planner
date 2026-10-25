@@ -1,5 +1,7 @@
 import { useEffect, type RefObject } from 'react';
 import { planStore } from '../state/plan-store.js';
+import { isClick } from '../plan/click.js';
+import { screenToWorld } from '../plan/viewport.js';
 
 /** Wheel sensitivity: `exp(-deltaY * 0.002)`, so ~500 px of wheel travel changes the scale by a factor of `e`. */
 const WHEEL_ZOOM_FACTOR = 0.002;
@@ -14,15 +16,32 @@ interface DragState {
   readonly y: number;
 }
 
+/** Where the pointer went down, kept so the up event can tell a click from a pan. */
+interface GestureState {
+  readonly pointerId: number;
+  readonly fromX: number;
+  readonly fromY: number;
+}
+
 /**
- * Registers the plan's input gestures on `svg`: wheel zoom around the cursor, drag pan on the background and the
- * canvas size from a `ResizeObserver`. Returns the cleanup that removes all of them.
+ * The elements that own their keystrokes. A key pressed in one of them belongs to that control — Backspace edits
+ * the field, Enter and Space activate the button — so the drawing keys do not fire there.
+ */
+function isFormControl(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return ['INPUT', 'SELECT', 'TEXTAREA'].includes(target.tagName) || target.isContentEditable;
+}
+
+/**
+ * Registers the plan's input gestures on `svg`: wheel zoom around the cursor, drag pan, click-to-add-a-corner
+ * while drawing, the drawing keys, and the canvas size from a `ResizeObserver`. Returns the cleanup that removes
+ * all of them.
  *
  * These are native listeners in an effect because React's props cannot express them: `onWheel` is registered
  * passively (so `preventDefault` would be a no-op and the page would scroll), `setPointerCapture` needs the event
  * object, and the observer is not a React concept. The handlers read `planStore.getState()` at event time instead
- * of closing over the viewport: a dependency on it would tear the listeners down on every zoom, and a pan in
- * progress would lose its captured pointer with them.
+ * of closing over the state: a dependency on it would tear the listeners down on every zoom, and a pan in progress
+ * would lose its captured pointer with them.
  */
 function attachPlanInteraction(svg: SVGSVGElement): () => void {
   /** The pointer position relative to the SVG's top-left corner, which is the screen space the store uses. */
@@ -38,12 +57,17 @@ function attachPlanInteraction(svg: SVGSVGElement): () => void {
   }
 
   let drag: DragState | null = null;
+  let gesture: GestureState | null = null;
 
   function onPointerDown(event: PointerEvent): void {
-    // Left button only, and only on the background: dragging the base area itself is a later, editing gesture.
+    // Left button only. The base area is not draggable, but in drawing mode a click on it **is** a corner: every
+    // zone corner lies inside the base area, so swallowing those clicks would make drawing impossible.
     if (event.button !== 0) return;
-    if (event.target instanceof Element && event.target.classList.contains(BASE_AREA_CLASS)) return;
+    const onBaseArea = event.target instanceof Element && event.target.classList.contains(BASE_AREA_CLASS);
+    if (onBaseArea && !planStore.getState().drawing) return;
     drag = { pointerId: event.pointerId, x: event.clientX, y: event.clientY };
+    // recorded before the capture, so the up event can compare the two ends of the gesture
+    gesture = { pointerId: event.pointerId, fromX: event.clientX, fromY: event.clientY };
     svg.setPointerCapture(event.pointerId);
   }
 
@@ -57,6 +81,45 @@ function attachPlanInteraction(svg: SVGSVGElement): () => void {
     if (!drag || event.pointerId !== drag.pointerId) return;
     if (svg.hasPointerCapture(event.pointerId)) svg.releasePointerCapture(event.pointerId);
     drag = null;
+
+    // The 4 px rule: a gesture that barely moved is a click, and a click in drawing mode places a corner. The
+    // pan above has already run, which is harmless for a few pixels — the world point is read from the *current*
+    // viewport, so the corner lands where the pointer is now, not where the viewport was before the tiny move.
+    const ended = gesture;
+    gesture = null;
+    if (!ended || ended.pointerId !== event.pointerId) return;
+    if (!isClick({ from: { x: ended.fromX, y: ended.fromY }, to: { x: event.clientX, y: event.clientY } })) return;
+
+    const state = planStore.getState();
+    if (!state.drawing) return;
+    const screen = localPoint(event);
+    // the draft is in world metres: the click is converted with the same maths the drawing uses (D1)
+    state.addDraftPoint(screenToWorld(state.viewport, screen));
+  }
+
+  /** The drawing keys, read while the plan **or the panel** has focus (the task's binding decision). */
+  function onKeyDown(event: KeyboardEvent): void {
+    // A form control keeps its own keys: Backspace has to edit the base-area fields, and Enter and Space activate
+    // the button or select they belong to. Only a key pressed on the plan or on the panel around it is a drawing
+    // key, which is why the listener sits on the document rather than on the SVG alone.
+    if (isFormControl(event.target)) return;
+
+    const state = planStore.getState();
+    if (event.key === 'Escape') {
+      // Escape also drops a selection, so the key always means "back out of what I am doing".
+      if (state.drawing) state.cancelDrawing();
+      else state.selectZone(null);
+      return;
+    }
+    if (!state.drawing) return;
+    if (event.key === 'Enter') state.finishDrawing();
+    // Backspace must not navigate back in the browser: it does here only while a draft is running
+    else if (event.key === 'Backspace') {
+      event.preventDefault();
+      state.removeLastDraftPoint();
+    } else return;
+    // ... and Enter must not also activate whatever is focused next to the plan
+    event.preventDefault();
   }
 
   // The SVG is laid out to fill its wrapper, so its own box is the canvas the store measures. The observer's
@@ -72,6 +135,9 @@ function attachPlanInteraction(svg: SVGSVGElement): () => void {
   svg.addEventListener('pointermove', onPointerMove);
   svg.addEventListener('pointerup', onPointerUp);
   svg.addEventListener('pointercancel', onPointerUp);
+  // On the document, not on the SVG: the keys belong to the drawing, and the plan may not have the focus — after
+  // clicking "Draw zone" the focus is on the panel's button, and Escape must still cancel the draft.
+  document.addEventListener('keydown', onKeyDown);
   observer.observe(svg);
 
   return () => {
@@ -80,6 +146,7 @@ function attachPlanInteraction(svg: SVGSVGElement): () => void {
     svg.removeEventListener('pointermove', onPointerMove);
     svg.removeEventListener('pointerup', onPointerUp);
     svg.removeEventListener('pointercancel', onPointerUp);
+    document.removeEventListener('keydown', onKeyDown);
     // Without `disconnect` the observer keeps the element (and the store write) alive after the unmount.
     observer.disconnect();
   };
