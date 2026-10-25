@@ -1,4 +1,4 @@
-import { createProject, createRectangleBaseArea, type Point, type Project } from '@garden-planner/shared';
+import { createProject, createRectangleBaseArea, type LengthUnit, type Point, type Project } from '@garden-planner/shared';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import {
   boundsOf,
@@ -35,6 +35,10 @@ export interface PlanState {
   panBy(dxPx: number, dyPx: number): void;
   /** Shows the whole base area with the fit margin. */
   fitProject(): void;
+  /** Switches the unit of display and input (D2); no stored value changes, the numbers are re-read in `unit`. */
+  setDisplayUnit(unit: LengthUnit): void;
+  /** Replaces the base area with a rectangle of that size in metres and fits it into the canvas. */
+  setBaseAreaRectangle(widthMeters: number, heightMeters: number): void;
 }
 
 /** The vanilla store handle: `getState()`, `setState()`, `subscribe()` — no React needed to use or test it. */
@@ -98,6 +102,22 @@ export function createPlanStore(initial: PlanStoreOptions = {}): PlanStore {
     fitProject(): void {
       const { project, canvasSize } = get();
       set({ viewport: fittedViewport(project, canvasSize) });
+    },
+
+    setDisplayUnit(unit: LengthUnit): void {
+      // Only the unit field is replaced: `baseArea` and `zones` keep their identity, so a component that selects
+      // them does not re-render for a unit switch.
+      set({ project: { ...get().project, displayUnit: unit } });
+    },
+
+    setBaseAreaRectangle(widthMeters: number, heightMeters: number): void {
+      const { project, canvasSize } = get();
+      // Built before the write: `createRectangleBaseArea` rejects an unusable size (0, negative, non-finite) with
+      // a RangeError, and a throw must leave the store as it was rather than half-updated.
+      const updated: Project = { ...project, baseArea: createRectangleBaseArea(widthMeters, heightMeters) };
+      // One write, not `set` + `fitProject()`: the new rectangle has to be drawn in a viewport that shows it, and
+      // two writes would render it once in the old viewport.
+      set({ project: updated, viewport: fittedViewport(updated, canvasSize) });
     },
   }));
 }

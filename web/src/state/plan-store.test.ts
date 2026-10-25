@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { Point, Project } from '@garden-planner/shared';
+import { addZone, createProject, createRectangleBaseArea, createZone, type Point, type Project } from '@garden-planner/shared';
 import { createPlanStore, planStore } from './plan-store.js';
 import type { PlanState } from './plan-store.js';
 import { boundsOf, fitToRect } from '../plan/viewport.js';
@@ -26,6 +26,23 @@ function worldFrom(state: PlanState, screenPoint: Point): Point {
 /** A store that has already seen a canvas, so the first-measurement fit is behind it. */
 function fittedStore() {
   const store = createPlanStore();
+  store.getState().setCanvasSize(CANVAS);
+  return store;
+}
+
+/** A fitted store whose project has a zone, so "keeps the zones" is an assertion about something that exists. */
+function fittedStoreWithZone() {
+  const zone = createZone({
+    id: 'zone-1',
+    type: 'bed',
+    points: [
+      { x: 1, y: 1 },
+      { x: 3, y: 1 },
+      { x: 3, y: 2 },
+    ],
+  });
+  const project = addZone(createProject({ id: 'p1', name: 'With a zone', baseArea: createRectangleBaseArea(10, 6) }), zone);
+  const store = createPlanStore({ project });
   store.getState().setCanvasSize(CANVAS);
   return store;
 }
@@ -142,6 +159,14 @@ test('AC-8: a subscriber is notified exactly once per action', () => {
     countNotifications((state) => state.fitProject()),
     1,
   );
+  assert.equal(
+    countNotifications((state) => state.setDisplayUnit('cm')),
+    1,
+  );
+  assert.equal(
+    countNotifications((state) => state.setBaseAreaRectangle(8, 4)),
+    1,
+  );
 });
 
 test('AC-8: an unmeasured canvas is not fitted and the store stays usable', () => {
@@ -162,6 +187,62 @@ test('AC-8: an invalid action argument leaves the state untouched', () => {
 
   assert.equal(store.getState().viewport, before.viewport);
   assert.equal(store.getState().project, before.project);
+});
+
+test('AC-2: setDisplayUnit changes the unit and leaves everything else identical (D2)', () => {
+  const store = fittedStoreWithZone();
+  const before = store.getState();
+
+  store.getState().setDisplayUnit('cm');
+
+  const after = store.getState();
+  assert.equal(after.project.displayUnit, 'cm');
+  // the same objects, not equal copies: nothing but the unit field may have been rebuilt
+  assert.equal(after.project.baseArea, before.project.baseArea);
+  assert.equal(after.project.zones, before.project.zones);
+  assert.equal(after.project.zones[0], before.project.zones[0]);
+  assert.deepEqual(after.project, { ...before.project, displayUnit: 'cm' });
+  // a unit switch is a display change: the view the user works in stays as it is
+  assert.equal(after.viewport, before.viewport);
+});
+
+test('AC-2: setBaseAreaRectangle replaces the base area and fits the new rectangle', () => {
+  const store = fittedStoreWithZone();
+  const before = store.getState();
+
+  store.getState().setBaseAreaRectangle(12.5, 6);
+
+  const after = store.getState();
+  assert.deepEqual(after.project.baseArea.points, [
+    { x: 0, y: 0 },
+    { x: 12.5, y: 0 },
+    { x: 12.5, y: 6 },
+    { x: 0, y: 6 },
+  ]);
+  assert.equal(after.project.zones, before.project.zones);
+  assert.deepEqual(after.project.zones, before.project.zones);
+  assert.equal(after.project.displayUnit, before.project.displayUnit);
+  assert.deepEqual(after.viewport, expectedFit(after.project, CANVAS));
+  // the fit is the new rectangle's: a viewport that was not recomputed would still show the old one
+  assert.notDeepEqual(after.viewport, before.viewport);
+});
+
+test('AC-2: setBaseAreaRectangle rejects an unusable size and changes nothing', () => {
+  const store = fittedStoreWithZone();
+  const before = store.getState();
+
+  for (const [width, height] of [
+    [0, 6],
+    [12.5, 0],
+    [-3, 6],
+    [12.5, -1],
+    [Number.NaN, 6],
+    [12.5, Number.POSITIVE_INFINITY],
+  ]) {
+    assert.throws(() => store.getState().setBaseAreaRectangle(width, height), RangeError, `${width} x ${height}`);
+    assert.equal(store.getState().project, before.project);
+    assert.equal(store.getState().viewport, before.viewport);
+  }
 });
 
 test('AC-8: the store only moves the viewport, never the project', () => {
