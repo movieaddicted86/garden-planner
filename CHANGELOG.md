@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- web: plan viewport maths and plan store (T-007)
 - shared: point-in-polygon, zone overlap and outside-base warnings (T-006)
 - shared: zone vertex/edge operations (T-005)
 - shared: data model and factories (T-004)
