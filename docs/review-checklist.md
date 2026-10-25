@@ -38,7 +38,16 @@ Gated rules (CI) are not re-read by hand – check that CI is green, then spend 
 - [ ] Tests are deterministic (no sleeps as sync, no order dependence); a flaky failure is investigated, not re-run.
 - [ ] Touched E2E specs pass; layout/toolbars/sidebars run the spec that pins them.
 
+## 5b. Guards and second entry points
+- [ ] A guard that closes a hole: the tests that walked through the hole were found (`grep`) and now do what a user
+      does; the guard itself was not weakened. A resulting product question goes to the decider.
+- [ ] Every guard also covers the second entry point (Preview/RPC/CLI/import), not only the screen it was written for.
+- [ ] Open the touched UI in every state: nothing selected, one object, a tool open, an error — no empty panels,
+      a visible close control, no function with two competing homes.
+
 ## 6. Docs and hygiene
+- [ ] UI change: the documentation screenshots of the touched views were regenerated (stale = `changes_requested`);
+      the main README did not grow beyond ~150 lines.
 - [ ] Changelog "Unreleased", user docs, acceptance/UAT list updated.
 - [ ] No commented-out code, no TODO without backlog entry, no stray debug/log output.
 - [ ] Commit messages follow the convention; one logical step per commit.

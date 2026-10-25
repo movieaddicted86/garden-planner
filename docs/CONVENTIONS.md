@@ -82,6 +82,14 @@ See `docs/principles/02-testability.md`. In this stack:
    calibration run, not absolute milliseconds.
 5. Docs: changelog "Unreleased", user docs, UAT/acceptance list when user-visible.
 
+### Documentation and screenshots
+- The main `README.md` stays short (≤ ~150 lines: what it is, a hero screenshot, grouped feature bullets with links,
+  quick start, a link table into `docs/`, contributing, licence); everything else lives in `docs/` and is only linked.
+- A user-visible change updates `docs/` (feature list, test-case list) and regenerates the screenshots with a script
+  (`npm run docs:screenshots`) in the same task; the changelog "Unreleased" block lists it.
+- UI specs select by `data-testid` hooks, not by CSS classes (a guard test enforces it for the covered regions), so
+  restructuring the markup does not break the suite.
+
 ## 6. Git
 
 See `docs/principles/05-change-management.md`: branch `feature/T-NNN`, `<Area>: <summary> (T-NNN)`,

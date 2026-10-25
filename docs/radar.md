@@ -36,6 +36,9 @@ note to `CHANGELOG.md`, so `upgrade` tells every project.
 | 3D / canvas | three.js behind an adapter folder | |
 | Docs | Markdown in repo, ADRs in `docs/adr/` | |
 
+Notes from use: Vite 8 (rolldown) dropped unused CSS-Module sheets in the first project → plain `.css` imported in a fixed
+order; the shared package stays free of runtime dependencies (hand-written validators there, zod on the server).
+
 ## Trial (candidates; each needs an ADR)
 
 | Candidate | What to learn first |
